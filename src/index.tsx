@@ -107,6 +107,8 @@ export class Subscribe<TContainers extends ContainersType> extends React.Compone
       } else {
         instance = ctx.get(item)
         if (!instance) {
+          //console.log('[unstated] instance is not created, call constructor to create new one')
+          //console.log(ctx)
           instance = new item()
           ctx.set(item, instance)
         }

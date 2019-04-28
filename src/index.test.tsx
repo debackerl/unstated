@@ -164,6 +164,90 @@ test('counter container: should remove subscriber listeners if component is unmo
   expect(counterContainer._listeners.length).toBe(0)
 })
 
+test('multiple subscribers', async () => {
+  const counterContainer = new CounterContainer()
+  const component = renderer.create(
+    <Provider inject={[counterContainer]}>
+      <Subscribe to={[CounterContainer]}>
+        { counter => <span>{counter.state.count}</span> }
+      </Subscribe>
+      <Subscribe to={[CounterContainer]}>
+        { counter => <button onClick={() => counter.decrement()}>-</button> }
+      </Subscribe>
+      <Subscribe to={[CounterContainer]}>
+        { counter => <button onClick={() => counter.increment()}>+</button> }
+      </Subscribe>
+    </Provider>
+  )
+
+  let tree = component.toJSON()
+  expect(parseInt(tree[0].children[0])).toBe(INITIAL)
+  expect(counterContainer.state.count).toBe(INITIAL)
+
+  await tree[1].props.onClick()  // decrease
+  tree = component.toJSON()
+  expect(parseInt(tree[0].children[0])).toBe(INITIAL - 1)
+  expect(counterContainer.state.count).toBe(INITIAL - 1)
+
+  await tree[2].props.onClick()  // increase
+  tree = component.toJSON()
+  expect(parseInt(tree[0].children[0])).toBe(INITIAL)
+  expect(counterContainer.state.count).toBe(INITIAL)
+})
+
+test('nested providers', async () => {
+  const counterContainer = new CounterContainer()
+  const amounterContainer = new AmounterContainer()
+  const component = renderer.create(
+    <Provider inject={[counterContainer]}>
+      <Subscribe to={[CounterContainer]}>
+        { counter => <span>{counter.state.count}</span> }
+      </Subscribe>
+      <Provider inject={[amounterContainer]}>
+        <Subscribe to={[AmounterContainer]}>
+          { amounter => <span>{amounter.state.amount}</span> }
+        </Subscribe>
+        <Subscribe to={[CounterContainer, AmounterContainer]}>
+          {(counter, amounter) => (
+            <div>
+              <button onClick={() => counter.decrement()}>-</button>
+              <button onClick={() => counter.increment()}>+</button>
+              <button onClick={() => amounter.setAmount(5)}>Set amount to 5</button>
+            </div>
+          )}
+        </Subscribe>
+      </Provider>
+    </Provider>
+  )
+
+  let tree = component.toJSON()
+  expect(parseInt(tree[0].children[0])).toBe(INITIAL)
+  expect(parseInt(tree[1].children[0])).toBe(INITIAL)
+  expect(counterContainer.state.count).toBe(INITIAL)
+  expect(amounterContainer.state.amount).toBe(INITIAL)
+
+  await tree[2].children[0].props.onClick()  // decrease
+  tree = component.toJSON()
+  expect(parseInt(tree[0].children[0])).toBe(INITIAL - 1)
+  expect(parseInt(tree[1].children[0])).toBe(INITIAL)
+  expect(counterContainer.state.count).toBe(INITIAL - 1)
+  expect(amounterContainer.state.amount).toBe(INITIAL)
+
+  await tree[2].children[1].props.onClick()  // increase
+  tree = component.toJSON()
+  expect(parseInt(tree[0].children[0])).toBe(INITIAL)
+  expect(parseInt(tree[1].children[0])).toBe(INITIAL)
+  expect(counterContainer.state.count).toBe(INITIAL)
+  expect(amounterContainer.state.amount).toBe(INITIAL)
+
+  await tree[2].children[2].props.onClick()  // set amount to 5
+  tree = component.toJSON()
+  expect(parseInt(tree[0].children[0])).toBe(INITIAL)
+  expect(parseInt(tree[1].children[0])).toBe(5)
+  expect(counterContainer.state.count).toBe(INITIAL)
+  expect(amounterContainer.state.amount).toBe(5)
+})
+
 test('multiple containers', async () => {
   const counterContainer = new CounterContainer()
   const amounterContainer = new AmounterContainer()

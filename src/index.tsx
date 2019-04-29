@@ -7,14 +7,7 @@ export class Container<S extends object> {
   state: S
   _listeners: Listener[] = []
 
-  constructor() {
-    CONTAINER_DEBUG_CALLBACKS.forEach(cb => cb(this))
-  }
-
-  setState(
-    updater?: Partial<S> | ((prevState: S) => Partial<S>),
-    callback?: (state?: S) => void
-  ): Promise<void> {
+  setState = (updater?: Partial<S> | ((prevState: S) => Partial<S>), callback?: (state?: S) => void) => {
     let nextState: Partial<S>
     if (typeof updater === 'function') {
       nextState = (updater as (prevState: S) => Partial<S>)(this.state)
@@ -39,13 +32,9 @@ export class Container<S extends object> {
     })
   }
 
-  subscribe(fn: Listener) {
-    this._listeners.push(fn);
-  }
+  subscribe = (fn: Listener) => this._listeners.unshift(fn)
 
-  unsubscribe(fn: Listener) {
-    this._listeners = this._listeners.filter(f => f !== fn);
-  }
+  unsubscribe = (fn: Listener) => this._listeners = this._listeners.filter(f => f !== fn)
 }
 
 interface ContainerClass<S extends object, TContainer extends Container<S> = Container<S>> {
@@ -70,36 +59,23 @@ type Containers<
     TContainers extends ContainersType ? MapContainersType<TContainers> :
     any[]
 
-export interface ISubscribeProps<TContainers extends ContainersType> {
+interface SubscribeProps<TContainers extends ContainersType> {
   to: TContainers
   children: (...instances: Containers<TContainers>) => React.ReactNode
 }
 
-const Context = React.createContext<ContainersMap>(null)  // type ContainersMap
+const Context = React.createContext<ContainersMap>(null)
 
-export class Subscribe<TContainers extends ContainersType> extends React.Component<ISubscribeProps<TContainers>> {
-  state = {}
+export class Subscribe<TContainers extends ContainersType> extends React.Component<SubscribeProps<TContainers>> {
   _instances = []
   _unmounted = false
 
-  _unsubscribe() {
-    this._instances.forEach(container => {
-      container.unsubscribe(this.onUpdate)
-    })
-  }
+  _unsubscribe = () => this._instances.forEach(container => container.unsubscribe(this.onUpdate))
+  
+  _createInstances = (ctx: ContainersMap, containers: TContainers) => {
+    if (!ctx) throw new Error('You must wrap your <Subscribe> components with a <Provider>')
 
-  _createInstances(
-    ctx: ContainersMap,
-    containers: TContainers
-  ) {
     this._unsubscribe()
-
-    if (!ctx) {
-      throw new Error(
-        'You must wrap your <Subscribe> components with a <Provider>'
-      )
-    }
-
     this._instances = containers.map(item => {
       let instance: ContainerType<object>
       if (typeof item === 'object' && item instanceof Container) {
@@ -107,33 +83,22 @@ export class Subscribe<TContainers extends ContainersType> extends React.Compone
       } else {
         instance = ctx.get(item)
         if (!instance) {
-          //console.log('[unstated] instance is not created, call constructor to create new one')
-          //console.log(ctx)
           instance = new item()
           ctx.set(item, instance)
         }
-        instance.subscribe(this.onUpdate)
       }
-
+      instance.subscribe(this.onUpdate)
       return instance
     })
 
     return this._instances as Containers<TContainers>
   }
 
+  onUpdate: Listener = async () => new Promise(resolve => !this._unmounted ? this.setState({}, resolve) : resolve())
+
   componentWillUnmount() {
     this._unmounted = true
     this._unsubscribe()
-  }
-
-  onUpdate: Listener = async () => {
-    return new Promise(resolve => {
-      if (!this._unmounted) {
-        this.setState({}, resolve)
-      } else {
-        resolve()
-      }
-    })
   }
 
   render() {
@@ -146,23 +111,17 @@ export class Subscribe<TContainers extends ContainersType> extends React.Compone
   }
 }
 
-interface IProviderProps {
+interface ProviderProps {
   inject?: [Container<object>, ...Container<object>[]]
   children: React.ReactNode
 }
 
-export const Provider = ({inject, children}: IProviderProps) => {
+export const Provider = ({inject, children}: ProviderProps) => {
   return (
     <Context.Consumer>
       {ctx => {
         let map = new Map(ctx)
-  
-        if (inject) {
-          inject.forEach(instance => {
-            map.set(instance.constructor as any, instance)
-          })
-        }
-  
+        if (inject) inject.forEach(instance => map.set(instance.constructor as ContainerClass<object>, instance))
         return (
           <Context.Provider value={map}>
             {children}
@@ -173,13 +132,13 @@ export const Provider = ({inject, children}: IProviderProps) => {
   )
 }
 
-type IMapStateToProps<
+type MapStateToProps<
   TContainers extends ContainerType<object> | ContainersType
 > = (...containers: Containers<TContainers>) => object
 
 export const unstated = <
   TContainers extends ContainerType<object> | ContainersType
->(containers: TContainers, mapStateToProps?: IMapStateToProps<TContainers>) => 
+>(containers: TContainers, mapStateToProps?: MapStateToProps<TContainers>) => 
   <P extends object>(Component: React.ComponentType<P>) => {
     class UnstatedComponent extends React.Component<P> {
       render() {
@@ -188,17 +147,14 @@ export const unstated = <
             (...containers) => {
               let injectProps = {}
               if (mapStateToProps === undefined) {
-                containers.forEach(c => {
-                  let container = c.constructor.name
-                  container = container.charAt(0).toLowerCase() + container.slice(1)
-
-                  injectProps = {
-                    ...injectProps,
-                    [container]: c
-                  }
-                })
+                injectProps = containers.reduce((m, c) => {
+                  let n = c.constructor.name
+                  n = n.charAt(0).toLowerCase() + n.slice(1)
+                  m[n] = c
+                  return m
+                }, {})
               } else {
-                injectProps = mapStateToProps(...containers as any)
+                injectProps = mapStateToProps(...containers as Containers<TContainers>)
               }
               return <Component {...this.props} {...injectProps}/>
             }
@@ -207,28 +163,12 @@ export const unstated = <
       }
     }
 
-  // display name
   (UnstatedComponent as React.ComponentType).displayName =
     `Unstated(${Component.displayName || Component.name || 'Component'})`
 
-  // Copy statics
   hoistNonReactStatic(UnstatedComponent, Component)
 
   return UnstatedComponent as React.ComponentType<any>
 }
 
 export default unstated
-
-/* FOR DEBUG START */
-type ContainerDebugCallback = (container: Container<object>) => void
-
-let CONTAINER_DEBUG_CALLBACKS: ContainerDebugCallback[] = []
-
-// If your name isn't Sindre, this is not for you.
-// I might ruin your day suddenly if you depend on this without talking to me.
-export function __SUPER_SECRET_CONTAINER_DEBUG_HOOK__(
-  callback: ContainerDebugCallback
-) {
-  CONTAINER_DEBUG_CALLBACKS.push(callback)
-}
-/* FOR DEBUG END */

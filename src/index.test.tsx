@@ -104,6 +104,16 @@ test('counter container: subscribe directly to container instance', async () => 
   let tree = component.toJSON()
   expect(parseInt(tree.children[0].children[0])).toBe(INITIAL)
   expect(counterContainer.state.count).toBe(INITIAL)
+
+  await tree.children[1].props.onClick()  // decrease
+  tree = component.toJSON()
+  expect(parseInt(tree.children[0].children[0])).toBe(INITIAL - 1)
+  expect(counterContainer.state.count).toBe(INITIAL - 1)
+
+  await tree.children[2].props.onClick()  // increase
+  tree = component.toJSON()
+  expect(parseInt(tree.children[0].children[0])).toBe(INITIAL)
+  expect(counterContainer.state.count).toBe(INITIAL)
 })
 
 test('counter container: increase/decrease count', async () => {

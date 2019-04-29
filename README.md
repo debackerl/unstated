@@ -3,15 +3,17 @@
   <img src="https://raw.githubusercontent.com/shadowwalker/unstated/typescript/img/logo.png" alt="Unstated Logo" width="400"/>
   <br>
   <h2 style="border-bottom: none;">Rewritten in Typescript</h2>
+  <p style="border-bottom: none;">react global state management in < 200 lines</p>
   <br><br><br><br><br>
 </div>
 
 
-# Unstated
 
-[Original Unstated](https://github.com/jamiebuilds/unstated) by [jamiebuilds](https://github.com/jamiebuilds)
+# Unstated in Typescript
 
 > State so simple, it goes without saying
+
+*This is a fork from [original Unstated](https://github.com/jamiebuilds/unstated) by [jamiebuilds](https://github.com/jamiebuilds) which rewrites unstated in TypeScript, use the previous link if you are looking for the original repository.*
 
 ## Highlight Typescript Support
 
@@ -597,7 +599,9 @@ render(
 );
 ```
 
-## Related
+## Tips
 
-- [unstated-debug](https://github.com/sindresorhus/unstated-debug) - Debug your Unstated containers with ease
+### Use With Next.js - [Example](https://github.com/zeit/next.js/tree/canary/examples/with-unstated)
+
+
 
